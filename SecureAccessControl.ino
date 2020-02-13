@@ -91,10 +91,18 @@ void verifyRFIDCard(){
   if(SD.exists(uidString + ".txt")){
     AccessGranted(3000);
     uidString = "0";
+    rfid.uid.uidByte[0] = 00;
+    rfid.uid.uidByte[1] = 00;
+    rfid.uid.uidByte[2] = 00;
+    rfid.uid.uidByte[3] = 00;
   }
   else{
     AccessDenied(1000);
     uidString = "0";
+    rfid.uid.uidByte[0] = 00;
+    rfid.uid.uidByte[1] = 00;
+    rfid.uid.uidByte[2] = 00;
+    rfid.uid.uidByte[3] = 00;
   }
   Serial.println("");
 }
@@ -143,16 +151,21 @@ void AccessDenied(int LockoutTime){
 //*****************************************************************************************//
 
 void ErrorCode(int ErrorNum){
-  pixels.setPixelColor(NeoPixelNotify, Blue);
-  pixels.show();
-  delay(1000);
-  for(int i = 0; i < ErrorNum; i++){
-    pixels.setPixelColor(NeoPixelNotify, Red);
+  Serial.println("Error Code: " + ErrorNum);
+  FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
+  FlashNeoPixel(NeoPixelNotify, ErrorNum, 500, Red);
+  FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
+}
+
+
+void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlah, int FlashDelayTime, uint32_t FlashColor){
+  delay(FlashDelayTime);
+  for(int i = 0; i < NumberOfTimesToFlah; i++){
+    pixels.setPixelColor(PixelNum, FlashColor);
     pixels.show();
-    delay(500);
-    Serial.println("Error Code: " + ErrorNum);
-    pixels.setPixelColor(NeoPixelNotify, Off);
+    delay(FlashDelayTime);
+    pixels.setPixelColor(PixelNum, Off);
     pixels.show();
-    delay(500);
+    delay(FlashDelayTime);
   }
 }
