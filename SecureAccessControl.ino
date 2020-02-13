@@ -34,6 +34,7 @@ void setup() {
   SPI.begin(); 
   // Init MFRC522 
   rfid.PCD_Init(); 
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
 
   // Setup for the SD card
   Serial.print("Initializing SD card...");
@@ -48,7 +49,7 @@ void loop() {
   //look for new cards
   if(rfid.PICC_IsNewCardPresent()) {
     readRFID();
-    verifyCheckIn();
+    verifyRFIDCard();
   }
   delay(10);
 }
@@ -56,54 +57,44 @@ void loop() {
 void readRFID() {
   rfid.PICC_ReadCardSerial();
   Serial.print("Tag UID: ");
-  uidString = String(rfid.uid.uidByte[0]) + "-" + String(rfid.uid.uidByte[1]) + "-" + 
-    String(rfid.uid.uidByte[2]) + "-" + String(rfid.uid.uidByte[3]);
+  uidString = String(rfid.uid.uidByte[0], HEX) + String(rfid.uid.uidByte[1], HEX) + 
+    String(rfid.uid.uidByte[2], HEX) + String(rfid.uid.uidByte[3], HEX);
   Serial.println(uidString);
   delay(100);
 }
 
-void verifyCheckIn(){
-  digitalWrite(CS_SD,LOW);
-  myFile=SD.open("knowncards/" + uidString + ".txt", FILE_WRITE);
-  if(myFile){
-    myFile.close();
+void verifyRFIDCard(){
+  if(SD.exists(uidString + ".txt")){
     Serial.println("Access Granted");
-      
-      // Enables SD card chip select pin
-      digitalWrite(CS_SD,LOW);
+    
       // Open file
       myFile=SD.open("log.txt", FILE_WRITE);
       // If the file opened ok, write to it
       if (myFile) {
-        Serial.println("File opened ok");
-        myFile.print(uidString + ", Access Granted");
-        Serial.println("sucessfully written on SD card");
+        Serial.println("Log opened ok");
+        myFile.println(uidString + ", Access Granted");
+        Serial.println("sucessfully written to log");
         myFile.close();
       }
       else {
         Serial.println("error opening data.txt");  
       }
-      // Disables SD card chip select pin  
-      digitalWrite(CS_SD,HIGH);
     
   }
   else{
     Serial.println("Access Denied");
-    // Enables SD card chip select pin
-      digitalWrite(CS_SD,LOW);
       // Open file
       myFile=SD.open("log.txt", FILE_WRITE);
       // If the file opened ok, write to it
       if (myFile) {
-        Serial.println("File opened ok");
-        myFile.print(uidString + ", Access Denied");
-        Serial.println("sucessfully written on SD card");
+        Serial.println("Log opened ok");
+        myFile.println(uidString + ", Access Denied");
+        Serial.println("sucessfully written to log");
         myFile.close();
       }
       else {
         Serial.println("error opening data.txt");  
       }
-      // Disables SD card chip select pin  
-      digitalWrite(CS_SD,HIGH);
   }
+  Serial.println("");
 }
