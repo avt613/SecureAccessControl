@@ -90,9 +90,11 @@ void readRFID() {
 void verifyRFIDCard(){
   if(SD.exists(uidString + ".txt")){
     AccessGranted(3000);
+    uidString = "0";
   }
   else{
     AccessDenied(1000);
+    uidString = "0";
   }
   Serial.println("");
 }
