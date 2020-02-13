@@ -1,80 +1,109 @@
-#include <SPI.h>
-#include <MFRC522.h>
+/*
+ * Rui Santos 
+ * Complete Project Details https://randomnerdtutorials.com
+ */
 
-#include <SD.h>
-#define chipSelect    3
-#define RST_PIN         9          // Configurable, see typical pin layout above
-#define SS_PIN          10         // Configurable, see typical pin layout above
+#include <MFRC522.h> // for the RFID
+#include <SPI.h> // for the RFID and SD card module
+#include <SD.h> // for the SD card
 
-MFRC522 mfrc522(SS_PIN, RST_PIN);  // Create MFRC522 instance
+// define pins for RFID
+#define CS_RFID 10
+#define RST_RFID 9
+// define select pin for SD card module
+#define CS_SD 3
+
+// Create a file to store the data
+File myFile;
+
+// Instance of the class for RFID
+MFRC522 rfid(CS_RFID, RST_RFID); 
+
+// Variable to hold the tag's UID
+String uidString;
 
 
-byte storedCard[4] = {135,34,112,96};   // Stores an ID read from EEPROM
-byte readCard[4];   // Stores scanned ID read from RFID Module
-boolean Status = 0;
 
 void setup() {
-
-
-  Serial.begin(9600);    // Initialize serial communications with the PC
-  while (!Serial);    // Do nothing if no serial port is opened (added for Arduinos based on ATMEGA32U4)
-  SPI.begin();      // Init SPI bus
+   
+  // Init Serial port
+  Serial.begin(9600);
+  while(!Serial); // for Leonardo/Micro/Zero
   
+  // Init SPI bus
+  SPI.begin(); 
+  // Init MFRC522 
+  rfid.PCD_Init(); 
+
+  // Setup for the SD card
   Serial.print("Initializing SD card...");
-  // see if the card is present and can be initialized:
-  if (!SD.begin(chipSelect)) {
-    Serial.println("Card failed, or not present");
-    // don't do anything more:
-    // while (1);
+  if(!SD.begin(CS_SD)) {
+    Serial.println("initialization failed!");
+    return;
   }
-  Serial.println("card initialized.");
-  
-  mfrc522.PCD_Init();   // Init MFRC522
-  delay(4);       // Optional delay. Some board do need more time after init to be ready, see Readme
-  mfrc522.PCD_DumpVersionToSerial();  // Show details of PCD - MFRC522 Card Reader details
-  Serial.println(F("Scan PICC to see UID, SAK, type, and data blocks..."));
-  mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
-
+  Serial.println("initialization done.");
 }
 
 void loop() {
-  mfrc522.PCD_Init();   // Init MFRC522
-  Status = getID();
-  if(Status == 1){
-      Serial.println("Stored Card Data");
-      for ( uint8_t i = 0; i < 4; i++) {
-        Serial.print(storedCard[i]);
-        Serial.print(" ");
-        }
-      Serial.println("");
-
-      if(readCard[0] == storedCard[0] && readCard[1] == storedCard[1] && readCard[2] == storedCard[2] && readCard[3] == storedCard[3]){
-        Serial.println("Card Known");
-        }else{
-          Serial.println("Card Unknown");
-          }
-    }  
+  //look for new cards
+  if(rfid.PICC_IsNewCardPresent()) {
+    readRFID();
+    verifyCheckIn();
+  }
+  delay(10);
 }
 
+void readRFID() {
+  rfid.PICC_ReadCardSerial();
+  Serial.print("Tag UID: ");
+  uidString = String(rfid.uid.uidByte[0]) + "-" + String(rfid.uid.uidByte[1]) + "-" + 
+    String(rfid.uid.uidByte[2]) + "-" + String(rfid.uid.uidByte[3]);
+  Serial.println(uidString);
+  delay(100);
+}
 
-uint8_t getID() {
-  // Getting ready for Reading PICCs
-  if ( ! mfrc522.PICC_IsNewCardPresent()) { //If a new PICC placed to RFID reader continue
-    return 0;
+void verifyCheckIn(){
+  digitalWrite(CS_SD,LOW);
+  myFile=SD.open("knowncards/" + uidString + ".txt", FILE_WRITE);
+  if(myFile){
+    myFile.close();
+    Serial.println("Access Granted");
+      
+      // Enables SD card chip select pin
+      digitalWrite(CS_SD,LOW);
+      // Open file
+      myFile=SD.open("log.txt", FILE_WRITE);
+      // If the file opened ok, write to it
+      if (myFile) {
+        Serial.println("File opened ok");
+        myFile.print(uidString + ", Access Granted");
+        Serial.println("sucessfully written on SD card");
+        myFile.close();
+      }
+      else {
+        Serial.println("error opening data.txt");  
+      }
+      // Disables SD card chip select pin  
+      digitalWrite(CS_SD,HIGH);
+    
   }
-  if ( ! mfrc522.PICC_ReadCardSerial()) {   //Since a PICC placed get Serial and continue
-    return 0;
+  else{
+    Serial.println("Access Denied");
+    // Enables SD card chip select pin
+      digitalWrite(CS_SD,LOW);
+      // Open file
+      myFile=SD.open("log.txt", FILE_WRITE);
+      // If the file opened ok, write to it
+      if (myFile) {
+        Serial.println("File opened ok");
+        myFile.print(uidString + ", Access Denied");
+        Serial.println("sucessfully written on SD card");
+        myFile.close();
+      }
+      else {
+        Serial.println("error opening data.txt");  
+      }
+      // Disables SD card chip select pin  
+      digitalWrite(CS_SD,HIGH);
   }
-  // There are Mifare PICCs which have 4 byte or 7 byte UID care if you use 7 byte PICC
-  // I think we should assume every PICC as they have 4 byte UID
-  // Until we support 7 byte PICCs
-  Serial.println("Scanned PICC's UID:");
-  for ( uint8_t i = 0; i < 4; i++) {  //
-    readCard[i] = mfrc522.uid.uidByte[i];
-    Serial.print(readCard[i]);
-    Serial.print(" ");
-  }
-  Serial.println("");
-  mfrc522.PICC_HaltA(); // Stop reading
-  return 1;
 }
