@@ -151,7 +151,6 @@ void ErrorCode(int ErrorNum){
     pixels.show();
     delay(500);
     Serial.println("Error Code: " + ErrorNum);
-    LogToSD("Error Code: " + ErrorNum);
     pixels.setPixelColor(NeoPixelNotify, Off);
     pixels.show();
     delay(500);
