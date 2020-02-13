@@ -1,6 +1,5 @@
-/*
- * Rui Santos 
- * Complete Project Details https://randomnerdtutorials.com
+/* With help from:
+ * Rui Santos https://randomnerdtutorials.com
  */
 
 #include <MFRC522.h> // for the RFID
@@ -13,37 +12,36 @@
 // define select pin for SD card module
 #define CS_SD 3
 
-// Create a file to store the data
-File myFile;
 
-// Instance of the class for RFID
-MFRC522 rfid(CS_RFID, RST_RFID); 
-
-// Variable to hold the tag's UID
-String uidString;
+File myFile; // Create a file to store the data
+String LogFile = "log.txt"; // name of Log File
 
 
+MFRC522 rfid(CS_RFID, RST_RFID); // Instance of the class for RFID
+
+
+String uidString;// Variable to hold the tag's UID
+
+//*****************************************************************************************//
 
 void setup() {
-   
-  // Init Serial port
-  Serial.begin(9600);
-  while(!Serial); // for Leonardo/Micro/Zero
+  Serial.begin(9600); // Init Serial port
+  while(!Serial); // Wait for computer serial box
+  SPI.begin(); // Init SPI bus
   
-  // Init SPI bus
-  SPI.begin(); 
-  // Init MFRC522 
-  rfid.PCD_Init(); 
-  rfid.PCD_SetAntennaGain(rfid.RxGain_max);
+  // Setup RFID module
+  rfid.PCD_Init(); // Init MFRC522
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
 
-  // Setup for the SD card
+  // Setup SD card module
   Serial.print("Initializing SD card...");
   if(!SD.begin(CS_SD)) {
     Serial.println("initialization failed!");
-    return;
   }
   Serial.println("initialization done.");
 }
+
+//*****************************************************************************************//
 
 void loop() {
   //look for new cards
@@ -54,47 +52,55 @@ void loop() {
   delay(10);
 }
 
+//*****************************************************************************************//
+
 void readRFID() {
   rfid.PICC_ReadCardSerial();
-  Serial.print("Tag UID: ");
+  Serial.print("Tag UID Scanned: ");
   uidString = String(rfid.uid.uidByte[0], HEX) + String(rfid.uid.uidByte[1], HEX) + 
     String(rfid.uid.uidByte[2], HEX) + String(rfid.uid.uidByte[3], HEX);
   Serial.println(uidString);
   delay(100);
 }
 
+//*****************************************************************************************//
+
 void verifyRFIDCard(){
   if(SD.exists(uidString + ".txt")){
-    Serial.println("Access Granted");
-    
-      // Open file
-      myFile=SD.open("log.txt", FILE_WRITE);
-      // If the file opened ok, write to it
-      if (myFile) {
-        Serial.println("Log opened ok");
-        myFile.println(uidString + ", Access Granted");
-        Serial.println("sucessfully written to log");
-        myFile.close();
-      }
-      else {
-        Serial.println("error opening data.txt");  
-      }
-    
+    AccessGranted(3);
   }
   else{
-    Serial.println("Access Denied");
-      // Open file
-      myFile=SD.open("log.txt", FILE_WRITE);
+    AccessGranted();
+  }
+  Serial.println("");
+}
+
+//*****************************************************************************************//
+
+void LogToSD(String DataToLogToSD){
+        // Open file
+      myFile=SD.open(LogFile, FILE_WRITE);
       // If the file opened ok, write to it
       if (myFile) {
         Serial.println("Log opened ok");
-        myFile.println(uidString + ", Access Denied");
+        myFile.println(DataToLogToSD);
         Serial.println("sucessfully written to log");
         myFile.close();
+        Serial.println("Log closed");
       }
       else {
-        Serial.println("error opening data.txt");  
+        Serial.println("error opening " + LogFile);  
       }
   }
-  Serial.println("");
+
+//*****************************************************************************************//
+  
+void AccessGranted(int TimeDoorOpen){
+  Serial.println("Access Granted");
+  LogToSD(uidString + ", Access Granted")
+}
+
+void AccessGranted(){
+  Serial.println("Access Denied");
+  LogToSD(uidString + ", Access Denied");
 }
