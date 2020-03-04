@@ -41,7 +41,7 @@ void setup() {
   
   // Setup RFID module
   rfid.PCD_Init(); // Init MFRC522
-  rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
+  //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
 
   // Setup SD card module
   Serial.print("Initializing SD card...");
@@ -57,11 +57,13 @@ void setup() {
 void loop() {
   //look for new cards
   if(rfid.PICC_IsNewCardPresent()) {
-    pixels.setPixelColor(NeoPixelNotify, Blue);
-    pixels.show();
     readRFID();
-    verifyRFIDCard();
-    ResetRFIDReadVariables();
+    if(uidString != "0000"){  // ignore if it didn't read the card properly
+      pixels.setPixelColor(NeoPixelNotify, Blue);
+      pixels.show();
+      verifyRFIDCard();
+      ResetRFIDReadVariables();
+    }
   }
   delay(10);
 }
