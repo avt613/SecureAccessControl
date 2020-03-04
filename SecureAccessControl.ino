@@ -2,7 +2,8 @@
  *  3 - Failed to initialise SD Module
 *   4 - failed to write to Log 
 */
-
+#define AccessGrantedTime 3000 // Time to keep the door unlocked for in milliseconds
+#define AccessDeniedTime 1000 // Time to wait after an incorrect unlock attempt in milliseconds
 // Setting up the NeoPixel Strip
 #include <Adafruit_NeoPixel.h>
 #define NeoPixelPin 2 // Which pin on the Arduino is connected to the NeoPixels?
@@ -80,10 +81,10 @@ void readRFID() {
 
 void verifyRFIDCard(){
   if(SD.exists(uidString + ".txt")){
-    AccessGranted(3000);
+    AccessGranted(AccessGrantedTime);
   }
   else{
-    AccessDenied(1000);
+    AccessDenied(AccessDeniedTime);
   }
   Serial.println("");
 }
@@ -112,9 +113,11 @@ void LogToSD(String DataToLogToSD){
 void AccessGranted(int TimeDoorOpen){
   pixels.setPixelColor(NeoPixelNotify, Green);
   pixels.show();
+  // activate relay
   Serial.println("Access Granted");
   LogToSD(uidString + ", Access Granted");
   delay(TimeDoorOpen);
+  // de-activate relay
   pixels.setPixelColor(NeoPixelNotify, Off);
   pixels.show();
 }
