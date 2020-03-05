@@ -31,9 +31,9 @@ String uidString;// Variable to hold the tag's UID
 void setup() {
   // Setup NeoPixels
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.setBrightness(30); // Set BRIGHTNESS to about 1/5 (max = 255)
+  pixels.setBrightness(30); // Set BRIGHTNESS (max = 255)
   pixels.clear(); // Set all pixel colors to 'off'
-  pixels.show();
+  //pixels.show();
   
   Serial.begin(9600); // Init Serial port
 //  while(!Serial); // Wait for computer serial box
@@ -50,6 +50,9 @@ void setup() {
     ErrorCode(3);  
   }
   Serial.println("initialization done.");
+  FlashNeoPixel(NeoPixelNotify, 1, 250, Red);
+  FlashNeoPixel(NeoPixelNotify, 1, 250, Blue);
+  FlashNeoPixel(NeoPixelNotify, 1, 250, Green);
 }
 
 //*****************************************************************************************//
@@ -138,6 +141,8 @@ void AccessDenied(int LockoutTime){
 
 void ErrorCode(int ErrorNum){
   Serial.println("Error Code: " + ErrorNum);
+  pixels.clear();
+  delay(500);
   FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
   FlashNeoPixel(NeoPixelNotify, ErrorNum, 500, Red);
   FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
@@ -145,7 +150,7 @@ void ErrorCode(int ErrorNum){
 
 
 void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlah, int FlashDelayTime, uint32_t FlashColor){
-  delay(FlashDelayTime);
+  
   for(int i = 0; i < NumberOfTimesToFlah; i++){
     pixels.setPixelColor(PixelNum, FlashColor);
     pixels.show();
