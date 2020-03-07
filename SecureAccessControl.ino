@@ -7,7 +7,7 @@
 // Setting up the NeoPixel Strip
 #include <Adafruit_NeoPixel.h>
 #define NeoPixelPin 2 // Which pin on the Arduino is connected to the NeoPixels?
-#define NumNeoPixels 30 // How many NeoPixels are attached to the Arduino?
+#define NumNeoPixels 2 // How many NeoPixels are attached to the Arduino?
 #define NeoPixelNotify 0 // Determine which LED to use as a notification LED
 Adafruit_NeoPixel pixels(NumNeoPixels, NeoPixelPin, NEO_GRB + NEO_KHZ800);
 static uint32_t Red   = pixels.Color(255,   0,   0);  // Setting easy name for common colours for the LED's 
@@ -31,7 +31,7 @@ String uidString;// Variable to hold the tag's UID
 void setup() {
   // Setup NeoPixels
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.setBrightness(30); // Set BRIGHTNESS (max = 255)
+  pixels.setBrightness(10); // Set BRIGHTNESS (max = 255)
   pixels.clear(); // Set all pixel colors to 'off'
   //pixels.show();
   
@@ -41,7 +41,7 @@ void setup() {
   
   // Setup RFID module
   rfid.PCD_Init(); // Init MFRC522
-  //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
+  rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
 
   // Setup SD card module
   Serial.print("Initializing SD card...");
