@@ -48,8 +48,6 @@ void setup() {
     mfrc522.PCD_Init(); // Init MFRC522 card
     
     randomSeed(analogRead(0));
-    
-
     Serial.println(F("Scan a MIFARE Classic PICC to demonstrate read and write."));
     Serial.print(F("Using key for A: "));
     dump_byte_array(keyA.keyByte, MFRC522::MF_KEY_SIZE);
