@@ -1,9 +1,16 @@
 /* Error Codes
  *  3 - Failed to initialise SD Module
 *   4 - failed to write to Log 
+*   5 - Couldn't find RTC Module
+*   6 - error opening "uidString".txt
 */
+
 #define AccessGrantedTime 3000 // Time to keep the door unlocked for in milliseconds
 #define AccessDeniedTime 1000 // Time to wait after an incorrect unlock attempt in milliseconds
+// Setup RTC Module
+#include <Wire.h>
+#include <RTClib.h>
+RTC_DS1307 rtc; 
 // Setting up the NeoPixel Strip
 #include <Adafruit_NeoPixel.h>
 #define NeoPixelPin 2 // Which pin on the Arduino is connected to the NeoPixels?
@@ -25,22 +32,35 @@ MFRC522 rfid(CS_RFID, RST_RFID); // Instance of the class for RFID
 MFRC522::MIFARE_Key keyA = {keyByte: {0x35, 0x35, 0x35, 0x32, 0x39, 0x34}};
 MFRC522::MIFARE_Key keyB = {keyByte: {0x00, 0x00, 0xC8, 0xFF, 0x7F, 0x00}};
 File myFile; // Create a file to store the data
-String LogFile = "log.txt"; // name of Log File
+String LogFile = "LOG.TXT"; // name of Log File
 String uidString;// Variable to hold the tag's UID
 
 //*****************************************************************************************//
 
-void setup() {
+void setup() {  
+  Serial.begin(9600); // Init Serial port
+  // while(!Serial); // Wait for computer serial box
   // Setup NeoPixels
   pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
   pixels.setBrightness(10); // Set BRIGHTNESS (max = 255)
   pixels.clear(); // Set all pixel colors to 'off'
-  //pixels.show();
+  pixels.show();
   
-  Serial.begin(9600); // Init Serial port
-//  while(!Serial); // Wait for computer serial box
+  // Setup RTC Module
+  if (! rtc.begin()) {
+    Serial.println("Couldn't find RTC");
+    ErrorCode(5);
+  }
+  if (! rtc.isrunning()) {
+    Serial.println("RTC is NOT running!");
+    // following line sets the RTC to the date & time this sketch was compiled
+    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+    // This line sets the RTC with an explicit date & time, for example to set
+    // January 21, 2014 at 3am you would call:
+    // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));  
+  }
+  
   SPI.begin(); // Init SPI bus for RFID and SD modules
-  
   // Setup RFID module
   rfid.PCD_Init(); // Init MFRC522
   //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
@@ -69,6 +89,8 @@ void setup() {
         Serial.print(keyB.keyByte[i], HEX);
     }
   Serial.println();
+  LogToSD("Initialising Complete");
+  Serial.println("Initialising Complete");
 }
 
 //*****************************************************************************************//
@@ -104,8 +126,9 @@ void verifyRFIDCard(){
   if(SD.exists(uidString + ".txt")){
   
     byte sector         = 1;
-    byte blockAddr      = 6;
-    byte trailerBlock   = 7;
+    byte blockAddr      = (4 * (sector + 1)) - 2;
+    byte trailerBlock   = (4 * (sector + 1)) - 1;
+    //byte trailerBlock   = 7;
     
     Serial.println();
     //MFRC522::StatusCode status;
@@ -118,7 +141,8 @@ void verifyRFIDCard(){
     // Read data from the block
     Serial.println(F("Reading data from block ")); Serial.print(blockAddr);
     MFRC522::StatusCode StatusReadingBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
-    Serial.println(F("Reading sector trailer..."));
+    /*
+   Serial.println(F("Reading sector trailer..."));
     MFRC522::StatusCode StatusTrailer = rfid.MIFARE_Read(trailerBlock, buffer, &size);
     // Authenticate using key B
     Serial.println(F("Authenticating again using key B..."));
@@ -132,9 +156,30 @@ void verifyRFIDCard(){
     }else{
       Serial.print("AC Code: ");
       Serial.println(String(buffer[6],HEX) + String(buffer[7],HEX) + String(buffer[8],HEX) + String(buffer[9], HEX));
-      AccessGranted(AccessGrantedTime);
-    }
       
+    }*/
+    myFile=SD.open(uidString + ".txt", FILE_WRITE);
+      // If the file opened ok, write to it
+      if (myFile) {
+        Serial.println( uidString + ".txt opened ok");
+        Serial.println( "Block: " + String(sector) + " blockAddr: " + String(blockAddr));
+        for (byte i = 0; i < 16; i++) {
+          myFile.print(buffer[i] < 0x10 ? "0" : "");
+          myFile.print(buffer[i], HEX);
+          Serial.print(buffer[i] < 0x10 ? "0" : "");
+          Serial.print(buffer[i], HEX);
+        }; 
+        Serial.println();
+        myFile.println();
+        Serial.println("sucessfully written to " + uidString + ".txt");
+        myFile.close();
+        Serial.println(uidString + ".txt closed");
+      }
+      else {
+        Serial.println("error opening " + uidString + ".txt");
+        ErrorCode(6);  
+      }
+      AccessGranted(AccessGrantedTime);
     /*
     // Write data to the block
     Serial.print(F("Writing data into block ")); Serial.print(blockAddr);
@@ -209,7 +254,9 @@ void LogToSD(String DataToLogToSD){
       myFile=SD.open(LogFile, FILE_WRITE);
       // If the file opened ok, write to it
       if (myFile) {
+        DateTime now = rtc.now(); //get current time
         Serial.println("Log opened ok");
+        myFile.print(now.toString("YYYY.MM.DD, hh:mm:ss, "));
         myFile.println(DataToLogToSD);
         Serial.println("sucessfully written to log");
         myFile.close();
@@ -239,7 +286,7 @@ void AccessDenied(int LockoutTime){
   pixels.setPixelColor(NeoPixelNotify, Red);
   pixels.show();
   Serial.println("Access Denied");
-  LogToSD(uidString + ", Access Denied");
+  LogToSD(uidString + ", Access Denied ");
   delay(LockoutTime);
   pixels.setPixelColor(NeoPixelNotify, Off);
   pixels.show();
@@ -248,18 +295,22 @@ void AccessDenied(int LockoutTime){
 //*****************************************************************************************//
 
 void ErrorCode(int ErrorNum){
-  Serial.println("Error Code: " + ErrorNum);
+  //Serial.println("");
+  Serial.print("Error Code: ");
+  Serial.println(String(ErrorNum));
+  Serial.println("----------------------------------------");
   pixels.clear();
   delay(500);
   FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
   FlashNeoPixel(NeoPixelNotify, ErrorNum, 500, Red);
   FlashNeoPixel(NeoPixelNotify, 2, 500, Blue);
+  asm volatile ("  jmp 0"); //restart Uno
 }
 
 
-void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlah, int FlashDelayTime, uint32_t FlashColor){
+void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlash, int FlashDelayTime, uint32_t FlashColor){
   
-  for(int i = 0; i < NumberOfTimesToFlah; i++){
+  for(int i = 0; i < NumberOfTimesToFlash; i++){
     pixels.setPixelColor(PixelNum, FlashColor);
     pixels.show();
     delay(FlashDelayTime);
