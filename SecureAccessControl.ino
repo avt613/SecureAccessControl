@@ -48,11 +48,11 @@ void setup() {
   
   // Setup RTC Module
   if (! rtc.begin()) {
-    Serial.println("Couldn't find RTC");
+    Serial.println(F("Couldn't find RTC"));
     ErrorCode(5);
   }
   if (! rtc.isrunning()) {
-    Serial.println("RTC is NOT running!");
+    Serial.println(F("RTC is NOT running!"));
     // following line sets the RTC to the date & time this sketch was compiled
     rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
     // This line sets the RTC with an explicit date & time, for example to set
@@ -66,12 +66,11 @@ void setup() {
   //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
 
   // Setup SD card module
-  Serial.print("Initializing SD card...");
   if(!SD.begin(CS_SD)) {
-    Serial.println("initialization failed!");
+    Serial.println(F("Initializing SD card failed!"));
     ErrorCode(3);  
   }
-  Serial.println("initialization done.");
+  Serial.println(F("Initializing SD card done."));
   FlashNeoPixel(NeoPixelNotify, 1, 250, Red);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Blue);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Green);
@@ -89,8 +88,8 @@ void setup() {
         Serial.print(keyB.keyByte[i], HEX);
     }
   Serial.println();
-  LogToSD("Initialising Complete");
-  Serial.println("Initialising Complete");
+  LogToSD(F("Startup Initialising Complete"));
+  Serial.println(F("Startup Initialising Complete"));
 }
 
 //*****************************************************************************************//
@@ -113,7 +112,7 @@ void loop() {
 
 void readRFID() {
   rfid.PICC_ReadCardSerial();
-  Serial.print("Tag UID Scanned: ");
+  Serial.print(F("Tag UID Scanned: "));
   uidString = String(rfid.uid.uidByte[0], HEX) + String(rfid.uid.uidByte[1], HEX) + 
     String(rfid.uid.uidByte[2], HEX) + String(rfid.uid.uidByte[3], HEX);
   Serial.println(uidString);
@@ -255,12 +254,12 @@ void LogToSD(String DataToLogToSD){
       // If the file opened ok, write to it
       if (myFile) {
         DateTime now = rtc.now(); //get current time
-        Serial.println("Log opened ok");
+        Serial.println(F("Log opened ok"));
         myFile.print(now.toString("YYYY.MM.DD, hh:mm:ss, "));
         myFile.println(DataToLogToSD);
-        Serial.println("sucessfully written to log");
+        Serial.println(F("sucessfully written to log"));
         myFile.close();
-        Serial.println("Log closed");
+        Serial.println(F("Log closed"));
       }
       else {
         Serial.println("error opening " + LogFile);
@@ -274,7 +273,7 @@ void AccessGranted(int TimeDoorOpen){
   pixels.setPixelColor(NeoPixelNotify, Green);
   pixels.show();
   // activate relay
-  Serial.println("Access Granted");
+  Serial.println(F("Access Granted"));
   LogToSD(uidString + ", Access Granted");
   delay(TimeDoorOpen);
   // de-activate relay
@@ -285,7 +284,7 @@ void AccessGranted(int TimeDoorOpen){
 void AccessDenied(int LockoutTime){
   pixels.setPixelColor(NeoPixelNotify, Red);
   pixels.show();
-  Serial.println("Access Denied");
+  Serial.println(F("Access Denied"));
   LogToSD(uidString + ", Access Denied ");
   delay(LockoutTime);
   pixels.setPixelColor(NeoPixelNotify, Off);
@@ -296,7 +295,7 @@ void AccessDenied(int LockoutTime){
 
 void ErrorCode(int ErrorNum){
   //Serial.println("");
-  Serial.print("Error Code: ");
+  Serial.print(F("Error Code: "));
   Serial.println(String(ErrorNum));
   Serial.println("----------------------------------------");
   pixels.clear();
