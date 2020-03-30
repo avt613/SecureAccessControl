@@ -1,8 +1,9 @@
 /* Error Codes
  *  3 - Failed to initialise SD Module
 *   4 - failed to write to Log 
-*   5 - Couldn't find RTC Module
-*   6 - error opening "uidString".txt
+*   5 - Could not find RTC Module
+*   6 - error opening "uidString".txt in verifyRFIDCard()
+*   7 - Could not find RC522 Module
 */
 
 #define AccessGrantedTime 3000 // Time to keep the door unlocked for in milliseconds
@@ -62,6 +63,10 @@ void setup() {
   
   SPI.begin(); // Init SPI bus for RFID and SD modules
   // Setup RFID module
+  if (rfid.PCD_PerformSelfTest() != 1){
+      Serial.println(F("Couldn't find RC522"));
+      ErrorCode(7);
+    }
   rfid.PCD_Init(); // Init MFRC522
   //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
 
@@ -70,7 +75,6 @@ void setup() {
     Serial.println(F("Initializing SD card failed!"));
     ErrorCode(3);  
   }
-  Serial.println(F("Initializing SD card done."));
   FlashNeoPixel(NeoPixelNotify, 1, 250, Red);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Blue);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Green);
