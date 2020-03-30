@@ -2,7 +2,7 @@
  *  3 - Failed to initialise SD Module
 *   4 - failed to write to Log 
 *   5 - Could not find RTC Module
-*   6 - error opening "uidString".txt in verifyRFIDCard()
+*   6 - error opening "uidString".txt in ManagerMode()
 *   7 - Could not find RC522 Module
 */
 
@@ -99,6 +99,12 @@ void setup() {
 //*****************************************************************************************//
 
 void loop() {
+  /*
+   if(Serial.available()){
+    //Serial.print("You typed: " );
+    //Serial.println(Serial.read());
+    ManagerMode();
+  }*/
   //look for new cards
   if(rfid.PICC_IsNewCardPresent()) {
     readRFID();
@@ -116,10 +122,11 @@ void loop() {
 
 void readRFID() {
   rfid.PICC_ReadCardSerial();
-  Serial.print(F("Tag UID Scanned: "));
+  Serial.print(F("Card with uid detected: "));
   uidString = String(rfid.uid.uidByte[0], HEX) + String(rfid.uid.uidByte[1], HEX) + 
     String(rfid.uid.uidByte[2], HEX) + String(rfid.uid.uidByte[3], HEX);
   Serial.println(uidString);
+  LogToSD("Card with uid detected: " + uidString);
   delay(100);
 }
 
@@ -138,19 +145,24 @@ void verifyRFIDCard(){
     byte buffer[18];
     byte size = sizeof(buffer);
 
-    // Authenticate using key A
-    Serial.println(F("Authenticating using key A..."));
-    MFRC522::StatusCode StatusKeyA = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &keyA, &(rfid.uid));
-    // Read data from the block
-    Serial.println(F("Reading data from block ")); Serial.print(blockAddr);
-    MFRC522::StatusCode StatusReadingBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
-    /*
-   Serial.println(F("Reading sector trailer..."));
-    MFRC522::StatusCode StatusTrailer = rfid.MIFARE_Read(trailerBlock, buffer, &size);
     // Authenticate using key B
     Serial.println(F("Authenticating again using key B..."));
     MFRC522::StatusCode StatusKeyB = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
+    // Read data from the block
+    Serial.print(F("Reading data from block ")); Serial.println(blockAddr);
+    MFRC522::StatusCode StatusReadingBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
     
+    if (StatusReadingBlock != MFRC522::STATUS_OK || StatusReadingBlock != MFRC522::STATUS_OK) {
+      Serial.print(F("PCD_Authenticate() failed: "));
+      AccessDenied(AccessDeniedTime);
+    }
+    /*
+   Serial.println(F("Reading sector trailer..."));
+    MFRC522::StatusCode StatusTrailer = rfid.MIFARE_Read(trailerBlock, buffer, &size);
+   // Authenticate using key A
+    Serial.println(F("Authenticating using key A..."));
+    MFRC522::StatusCode StatusKeyA = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &keyA, &(rfid.uid));
+     
           
     if (StatusKeyA != MFRC522::STATUS_OK || StatusReadingBlock != MFRC522::STATUS_OK || StatusTrailer != MFRC522::STATUS_OK || StatusKeyB != MFRC522::STATUS_OK) {
       Serial.print(F("PCD_Authenticate() failed: "));
@@ -161,26 +173,10 @@ void verifyRFIDCard(){
       Serial.println(String(buffer[6],HEX) + String(buffer[7],HEX) + String(buffer[8],HEX) + String(buffer[9], HEX));
       
     }*/
-    myFile=SD.open(uidString + ".txt", FILE_WRITE);
-      // If the file opened ok, write to it
-      if (myFile) {
-        Serial.println( uidString + ".txt opened ok");
-        Serial.println( "Block: " + String(sector) + " blockAddr: " + String(blockAddr));
-        for (byte i = 0; i < 16; i++) {
-          myFile.print(buffer[i] < 0x10 ? "0" : "");
-          myFile.print(buffer[i], HEX);
-          Serial.print(buffer[i] < 0x10 ? "0" : "");
-          Serial.print(buffer[i], HEX);
-        }; 
-        Serial.println();
-        myFile.println();
-        Serial.println("sucessfully written to " + uidString + ".txt");
-        myFile.close();
-        Serial.println(uidString + ".txt closed");
-      }
-      else {
-        Serial.println("error opening " + uidString + ".txt");
-        ErrorCode(6);  
+    
+      
+      for (byte i = 0; i < 16; i++) {
+        buffer[i] = 0x00; 
       }
       AccessGranted(AccessGrantedTime);
     /*
@@ -278,7 +274,7 @@ void AccessGranted(int TimeDoorOpen){
   pixels.show();
   // activate relay
   Serial.println(F("Access Granted"));
-  LogToSD(uidString + ", Access Granted");
+  LogToSD("Access Granted to card: " + uidString);
   delay(TimeDoorOpen);
   // de-activate relay
   pixels.setPixelColor(NeoPixelNotify, Off);
@@ -289,7 +285,7 @@ void AccessDenied(int LockoutTime){
   pixels.setPixelColor(NeoPixelNotify, Red);
   pixels.show();
   Serial.println(F("Access Denied"));
-  LogToSD(uidString + ", Access Denied ");
+  LogToSD("Access Denied  to card: " + uidString);
   delay(LockoutTime);
   pixels.setPixelColor(NeoPixelNotify, Off);
   pixels.show();
@@ -327,10 +323,9 @@ void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlash, int FlashDelayTime, u
 
 void ResetRFIDReadVariables(){
     uidString = "0";
-    rfid.uid.uidByte[0] = 00;
-    rfid.uid.uidByte[1] = 00;
-    rfid.uid.uidByte[2] = 00;
-    rfid.uid.uidByte[3] = 00;
+    for (byte i = 0; i < 3; i++) {
+      rfid.uid.uidByte[i] = 00;
+    }
 }
 
 //******************************************************************************************//
@@ -354,3 +349,72 @@ byte DecToHex(byte Dec){
                       0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF}; 
   return DecToHex[Dec]; 
 }
+
+//*******************************************************************************************//
+/*
+void ManagerMode(){
+  Serial.println(F("----------ManagerMode Activated----------"));
+  while(1){
+  delay(500);
+  pixels.setPixelColor(NeoPixelNotify, Blue);
+  pixels.show();
+  //look for new cards
+  if(rfid.PICC_IsNewCardPresent()) {
+    readRFID();
+    if(uidString != "0000"){  // ignore if it didn't read the card properly
+      if(SD.exists(uidString + ".txt")){
+        SD.remove(uidString + ".txt");
+        LogToSD("Card removed with UID: " + uidString);
+      }
+      else{
+        byte sector         = 1;
+        byte blockAddr      = (4 * (sector + 1)) - 2;
+        byte trailerBlock   = (4 * (sector + 1)) - 1;
+        byte buffer[18];
+        byte size = sizeof(buffer);
+        // Authenticate using key B
+        Serial.println(F("Authenticating again using key B..."));
+        MFRC522::StatusCode StatusKeyB = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
+        // Read data from the block
+        Serial.println(F("Reading data from block ")); Serial.print(blockAddr);
+        MFRC522::StatusCode StatusReadingBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
+        myFile=SD.open(uidString + ".txt", FILE_WRITE);
+        // If the file opened ok, write to it
+        if (myFile) {
+          Serial.println( uidString + ".txt opened ok");
+          Serial.println( "Block: " + String(sector) + " blockAddr: " + String(blockAddr));
+          for (byte i = 0; i < 16; i++) {
+            myFile.print(buffer[i] < 0x10 ? "0" : "");
+            myFile.print(buffer[i], HEX);
+            Serial.print(buffer[i] < 0x10 ? "0" : "");
+            Serial.print(buffer[i], HEX);
+          }; 
+          Serial.println();
+          myFile.println();
+          Serial.println("sucessfully written to " + uidString + ".txt");
+          myFile.close();
+          Serial.println(uidString + ".txt closed");
+          }
+          else {
+            Serial.println("error opening " + uidString + ".txt");
+            ErrorCode(6);  
+          }
+        ResetRFIDReadVariables();
+      }
+    }
+    delay(10);
+    }
+    if(Serial.available()){
+      //Serial.print("You typed: " );
+      //Serial.println(Serial.read());
+      delay(500);
+      Serial.println(F("----------ManagerMode De-Activated----------"));
+      pixels.setPixelColor(NeoPixelNotify, Off);
+      pixels.show();
+      return;
+    }
+  }
+  return;
+}
+*/
+//******************************************************************************************//
