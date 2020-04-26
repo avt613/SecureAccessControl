@@ -34,7 +34,8 @@ MFRC522::MIFARE_Key keyA = {keyByte: {0x35, 0x35, 0x35, 0x32, 0x39, 0x34}};
 MFRC522::MIFARE_Key keyB = {keyByte: {0x00, 0x00, 0xC8, 0xFF, 0x7F, 0x00}};
 File myFile; // Create a file to store the data
 String LogFile = "LOG.TXT"; // name of Log File
-String uidString;// Variable to hold the tag's UID
+String uidString; // Variable to hold the tag's UID
+String ACBits = "0f00ff69"; // AC bits the cards must have
 
 //*****************************************************************************************//
 
@@ -92,6 +93,8 @@ void setup() {
         Serial.print(keyB.keyByte[i], HEX);
     }
   Serial.println();
+  Serial.print(F("Using AC bits  : "));
+  Serial.println(ACBits);
   LogToSD(F("Startup Initialising Complete"));
   Serial.println(F("Startup Initialising Complete"));
 }
@@ -111,7 +114,15 @@ void loop() {
     if(uidString != "0000"){  // ignore if it didn't read the card properly
       pixels.setPixelColor(NeoPixelNotify, Blue);
       pixels.show();
-      verifyRFIDCard();
+      if(verifyRFIDCard() == 1){
+        AccessGranted(AccessGrantedTime);
+      }else{
+        AccessDenied(AccessDeniedTime);
+      }
+      // Halt PICC
+      rfid.PICC_HaltA();
+      // Stop encryption on PCD
+      rfid.PCD_StopCrypto1();
       ResetRFIDReadVariables();
     }
   }
@@ -123,8 +134,8 @@ void loop() {
 void readRFID() {
   rfid.PICC_ReadCardSerial();
   Serial.print(F("Card with uid detected: "));
-  uidString = String(rfid.uid.uidByte[0], HEX) + String(rfid.uid.uidByte[1], HEX) + 
-    String(rfid.uid.uidByte[2], HEX) + String(rfid.uid.uidByte[3], HEX);
+  uidString = (rfid.uid.uidByte[0] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[0], HEX) + (rfid.uid.uidByte[1] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[1], HEX) + 
+    (rfid.uid.uidByte[2] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[2], HEX) + (rfid.uid.uidByte[3] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[3], HEX);
   Serial.println(uidString);
   LogToSD("Card with uid detected: " + uidString);
   delay(100);
@@ -132,30 +143,49 @@ void readRFID() {
 
 //*****************************************************************************************//
 
-void verifyRFIDCard(){
-  if(SD.exists(uidString + ".txt")){
+int verifyRFIDCard(){
+  //check UUID
+  if(!SD.exists(uidString + ".txt")){
+    Serial.println(F("UID not recognized"));
+    return(2);
+  }
   
     byte sector         = 1;
     byte blockAddr      = (4 * (sector + 1)) - 2;
     byte trailerBlock   = (4 * (sector + 1)) - 1;
-    //byte trailerBlock   = 7;
-    
-    Serial.println();
-    //MFRC522::StatusCode status;
     byte buffer[18];
     byte size = sizeof(buffer);
 
-    // Authenticate using key B
-    Serial.println(F("Authenticating again using key B..."));
-    MFRC522::StatusCode StatusKeyB = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
-    // Read data from the block
-    Serial.print(F("Reading data from block ")); Serial.println(blockAddr);
-    MFRC522::StatusCode StatusReadingBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
-    
-    if (StatusReadingBlock != MFRC522::STATUS_OK || StatusReadingBlock != MFRC522::STATUS_OK) {
-      Serial.print(F("PCD_Authenticate() failed: "));
-      AccessDenied(AccessDeniedTime);
+    // Authenticate using key A
+    Serial.println(F("Authenticating using key A... "));
+    MFRC522::StatusCode StatusKeyA = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &keyA, &(rfid.uid));
+    // Check Key A
+    if (StatusKeyA != MFRC522::STATUS_OK) {
+      Serial.println(F("Key A not recognized"));
+      return(3);
     }
+    
+    // Authenticate using key B
+    Serial.println(F("Authenticating using key B... "));
+    MFRC522::StatusCode StatusKeyB = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
+    // Check Key B
+    if (StatusKeyB != MFRC522::STATUS_OK) {
+      Serial.println(F("Key B not recognized"));
+      return(4);
+    }
+    
+    
+    //Authenticate using AC bits
+    Serial.println(F("Authenticating using AC bits... "));
+    MFRC522::StatusCode StatusReadingACBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(trailerBlock, buffer, &size);
+    String ACString = (buffer[6] < 0x10 ? "0" : "") + String(buffer[6],HEX) + (buffer[7] < 0x10 ? "0" : "") + String(buffer[7],HEX) + 
+      (buffer[8] < 0x10 ? "0" : "") + String(buffer[8],HEX) + (buffer[9] < 0x10 ? "0" : "") + String(buffer[9],HEX);
+    //Serial.println(ACString);
+    if (StatusReadingACBlock != MFRC522::STATUS_OK || ACString != ACBits) {
+      Serial.println(F("AC not recognized"));
+      return(5);
+    }
+     
     /*
    Serial.println(F("Reading sector trailer..."));
     MFRC522::StatusCode StatusTrailer = rfid.MIFARE_Read(trailerBlock, buffer, &size);
@@ -178,7 +208,6 @@ void verifyRFIDCard(){
       for (byte i = 0; i < 16; i++) {
         buffer[i] = 0x00; 
       }
-      AccessGranted(AccessGrantedTime);
     /*
     // Write data to the block
     Serial.print(F("Writing data into block ")); Serial.print(blockAddr);
@@ -233,17 +262,11 @@ void verifyRFIDCard(){
     Serial.println();
     
 */
-    // Halt PICC
-    rfid.PICC_HaltA();
-    // Stop encryption on PCD
-    rfid.PCD_StopCrypto1();
     
     
-  }
-  else{
-    AccessDenied(AccessDeniedTime);
-  }
+  
   Serial.println("");
+  return(1);
 }
 
 //*****************************************************************************************//
@@ -254,12 +277,12 @@ void LogToSD(String DataToLogToSD){
       // If the file opened ok, write to it
       if (myFile) {
         DateTime now = rtc.now(); //get current time
-        Serial.println(F("Log opened ok"));
+        // Serial.println(F("Log opened ok"));
         myFile.print(now.toString("YYYY.MM.DD, hh:mm:ss, "));
         myFile.println(DataToLogToSD);
         Serial.println(F("sucessfully written to log"));
         myFile.close();
-        Serial.println(F("Log closed"));
+        // Serial.println(F("Log closed"));
       }
       else {
         Serial.println("error opening " + LogFile);
