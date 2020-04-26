@@ -2,7 +2,7 @@
  *  3 - Failed to initialise SD Module
 *   4 - failed to write to Log 
 *   5 - Could not find RTC Module
-*   6 - error opening "uidString".txt in ManagerMode()
+*   6 - error opening "uidString".txt
 *   7 - Could not find RC522 Module
 */
 
@@ -35,7 +35,7 @@ MFRC522::MIFARE_Key keyB = {keyByte: {0x00, 0x00, 0xC8, 0xFF, 0x7F, 0x00}};
 File myFile; // Create a file to store the data
 String LogFile = "LOG.TXT"; // name of Log File
 String uidString; // Variable to hold the tag's UID
-String ACBits = "0f00ff69"; // AC bits the cards must have
+String ACBits = " 0f 00 ff 69"; // AC bits the cards must have
 
 //*****************************************************************************************//
 
@@ -134,8 +134,10 @@ void loop() {
 void readRFID() {
   rfid.PICC_ReadCardSerial();
   Serial.print(F("Card with uid detected: "));
-  uidString = (rfid.uid.uidByte[0] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[0], HEX) + (rfid.uid.uidByte[1] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[1], HEX) + 
-    (rfid.uid.uidByte[2] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[2], HEX) + (rfid.uid.uidByte[3] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[3], HEX);
+  uidString = "";
+  for (byte i = 0; i < 4; i++) {
+        uidString += (rfid.uid.uidByte[i] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[i],HEX);
+    }
   Serial.println(uidString);
   LogToSD("Card with uid detected: " + uidString);
   delay(100);
@@ -181,85 +183,74 @@ int verifyRFIDCard(){
     //Authenticate using AC bits
     Serial.println(F("Authenticating using AC bits... "));
     MFRC522::StatusCode StatusReadingACBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(trailerBlock, buffer, &size);
-    String ACString = (buffer[6] < 0x10 ? "0" : "") + String(buffer[6],HEX) + (buffer[7] < 0x10 ? "0" : "") + String(buffer[7],HEX) + 
-      (buffer[8] < 0x10 ? "0" : "") + String(buffer[8],HEX) + (buffer[9] < 0x10 ? "0" : "") + String(buffer[9],HEX);
+    String ACString;
+    for (byte i = 6; i < 10; i++) {
+        ACString += (buffer[i] < 0x10 ? " 0" : " ") + String(buffer[i],HEX);
+    }
     //Serial.println(ACString);
     if (StatusReadingACBlock != MFRC522::STATUS_OK || ACString != ACBits) {
       Serial.println(F("AC not recognized"));
       return(5);
     }
     
-    Serial.println(F("Reading card data "));
+    Serial.println(F("Reading card data..."));
     MFRC522::StatusCode StatusReadingCardData = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
     String CardData;
     for (byte i = 0; i < 16; i++) {
         CardData += (buffer[i] < 0x10 ? "0" : "") + String(buffer[i],HEX);
     }
     Serial.println(CardData);
-    if (StatusReadingCardData != MFRC522::STATUS_OK) {
-      Serial.println(F("Reading card data failed"));
-      //return(5);
+    Serial.println(F("Reading saved data..."));
+    String SavedData = "";
+    // Open file
+    myFile=SD.open(uidString + ".txt");
+    // If the file opened ok, read it
+    if (myFile) {
+      while (myFile.available()) {
+      //Serial.write(myFile.read());
+      SavedData += (char)myFile.read();
+      }
+      myFile.close();
+      Serial.println(SavedData);
+    }else {
+      Serial.println("error opening " + uidString + ".txt");
+      ErrorCode(6);  
     }
-      
-      
-    /*
+    if (StatusReadingCardData != MFRC522::STATUS_OK || CardData != SavedData) {
+      Serial.println(F("Reading card data failed or card data is inconsistent"));
+      return(6);
+    }
+    
+    
     // Write data to the block
     Serial.print(F("Writing data into block ")); Serial.print(blockAddr);
     Serial.println(F(" ..."));
+    String StringDataToWrite = "";
+    byte DataToWrite[16];
     for (byte i = 0; i < 16; i++) {
-        Serial.print(dataBlock[i] < 0x10 ? " 0" : " ");
-        Serial.print(dataBlock[i], HEX);
+        DataToWrite[i] = DecToHex(random(0, 255));
+        StringDataToWrite = (DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i]);
+        //Serial.print((DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i], HEX));
     }; 
     Serial.println();
-    status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, dataBlock, 16);
+    MFRC522::StatusCode status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
     if (status != MFRC522::STATUS_OK) {
         Serial.print(F("MIFARE_Write() failed: "));
         Serial.println(rfid.GetStatusCodeName(status));
     }
-    Serial.println();
-
-    // Read data from the block (again, should now be what we have written)
-    Serial.print(F("Reading data from block ")); Serial.print(blockAddr);
-    Serial.println(F(" ..."));
-    status = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
-    if (status != MFRC522::STATUS_OK) {
-        Serial.print(F("MIFARE_Read() failed: "));
-        Serial.println(rfid.GetStatusCodeName(status));
-    }
-    Serial.print(F("Data in block ")); Serial.print(blockAddr); Serial.println(F(":"));
-    for (byte i = 0; i < 16; i++) {
-        Serial.print(buffer[i] < 0x10 ? " 0" : " ");
-        Serial.print(buffer[i], HEX);
-    }; Serial.println();
-
-    // Check that data in block is what we have written
-    // by counting the number of bytes that are equal
-    Serial.println(F("Checking result..."));
-    byte count = 0;
-    for (byte i = 0; i < 16; i++) {
-        // Compare buffer (= what we've read) with dataBlock (= what we've written)
-        if (buffer[i] == dataBlock[i])
-            count++;
-    }
-    Serial.print(F("Number of bytes that match = ")); Serial.println(count);
-    if (count == 16) {
-        Serial.println(F("Success :-)"));
-    } else {
-        Serial.println(F("Failure, no match :-("));
-        Serial.println(F("  perhaps the write didn't work properly..."));
-    }
-    Serial.println();
-
-    // Dump the sector data
-    Serial.println(F("Current data in sector:"));
-    rfid.PICC_DumpMifareClassicSectorToSerial(&(rfid.uid), &keyA, sector);
-    Serial.println();
+    Serial.println(StringDataToWrite);
     
-*/
-    
-    
-  
-  Serial.println("");
+    Serial.println(F("Writing data to SD..."));
+    // Open file
+    myFile=SD.open(uidString + ".txt", O_WRITE | O_CREAT | O_TRUNC);
+    // If the file opened ok, read it
+    if (myFile) {
+      myFile.print(StringDataToWrite);
+      myFile.close();
+    }else {
+      Serial.println("error opening " + uidString + ".txt");
+      ErrorCode(6);  
+    }
   return(1);
 }
 
