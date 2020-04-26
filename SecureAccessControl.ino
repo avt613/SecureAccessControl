@@ -237,7 +237,7 @@ int verifyRFIDCard(){
     Status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
     if (Status != MFRC522::STATUS_OK) {
         Serial.print(F("MIFARE_Write() failed: "));
-        Serial.println(rfid.GetStatusCodeName(status));
+        Serial.println(rfid.GetStatusCodeName(Status));
     }
     Serial.println(StringDataToWrite);
     
