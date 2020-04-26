@@ -152,6 +152,7 @@ int verifyRFIDCard(){
     return(2);
   }
   
+    MFRC522::StatusCode Status;
     byte sector         = 1;
     byte blockAddr      = (4 * (sector + 1)) - 2;
     byte trailerBlock   = (4 * (sector + 1)) - 1;
@@ -163,18 +164,18 @@ int verifyRFIDCard(){
 
     // Authenticate using key A
     Serial.println(F("Authenticating using key A... "));
-    MFRC522::StatusCode StatusKeyA = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &keyA, &(rfid.uid));
+    Status = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_A, trailerBlock, &keyA, &(rfid.uid));
     // Check Key A
-    if (StatusKeyA != MFRC522::STATUS_OK) {
+    if (Status != MFRC522::STATUS_OK) {
       Serial.println(F("Key A not recognized"));
       return(3);
     }
     
     // Authenticate using key B
     Serial.println(F("Authenticating using key B... "));
-    MFRC522::StatusCode StatusKeyB = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
+    Status = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
     // Check Key B
-    if (StatusKeyB != MFRC522::STATUS_OK) {
+    if (Status != MFRC522::STATUS_OK) {
       Serial.println(F("Key B not recognized"));
       return(4);
     }
@@ -182,19 +183,19 @@ int verifyRFIDCard(){
     
     //Authenticate using AC bits
     Serial.println(F("Authenticating using AC bits... "));
-    MFRC522::StatusCode StatusReadingACBlock = (MFRC522::StatusCode) rfid.MIFARE_Read(trailerBlock, buffer, &size);
+    Status = (MFRC522::StatusCode) rfid.MIFARE_Read(trailerBlock, buffer, &size);
     String ACString;
     for (byte i = 6; i < 10; i++) {
         ACString += (buffer[i] < 0x10 ? " 0" : " ") + String(buffer[i],HEX);
     }
     //Serial.println(ACString);
-    if (StatusReadingACBlock != MFRC522::STATUS_OK || ACString != ACBits) {
+    if (Status != MFRC522::STATUS_OK || ACString != ACBits) {
       Serial.println(F("AC not recognized"));
       return(5);
     }
     
     Serial.println(F("Reading card data..."));
-    MFRC522::StatusCode StatusReadingCardData = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
+    Status = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
     String CardData;
     for (byte i = 0; i < 16; i++) {
         CardData += (buffer[i] < 0x10 ? "0" : "") + String(buffer[i],HEX);
@@ -216,7 +217,7 @@ int verifyRFIDCard(){
       Serial.println("error opening " + uidString + ".txt");
       ErrorCode(6);  
     }
-    if (StatusReadingCardData != MFRC522::STATUS_OK || CardData != SavedData) {
+    if (Status != MFRC522::STATUS_OK || CardData != SavedData) {
       Serial.println(F("Reading card data failed or card data is inconsistent"));
       return(6);
     }
@@ -233,8 +234,8 @@ int verifyRFIDCard(){
         //Serial.print((DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i], HEX));
     }; 
     Serial.println();
-    MFRC522::StatusCode status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
-    if (status != MFRC522::STATUS_OK) {
+    Status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
+    if (Status != MFRC522::STATUS_OK) {
         Serial.print(F("MIFARE_Write() failed: "));
         Serial.println(rfid.GetStatusCodeName(status));
     }
