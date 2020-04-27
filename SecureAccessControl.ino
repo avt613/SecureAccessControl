@@ -4,6 +4,7 @@
 *   5 - Could not find RTC Module
 *   6 - error opening "uidString".txt
 *   7 - Could not find RC522 Module
+*   8 - Could not add new card
 */
 
 #define AccessGrantedTime 3000 // Time to keep the door unlocked for in milliseconds
@@ -36,10 +37,16 @@ File myFile; // Create a file to store the data
 String LogFile = "LOG.TXT"; // name of Log File
 String uidString; // Variable to hold the tag's UID
 String ACBits = " 0f 00 ff 69"; // AC bits the cards must have
+byte sector         = 2;
+#define relay 4     // Set Relay Pin
+#define prog 5     // Button pin for Programming Mode
+bool programMode = false;  // initialize programming mode to false
 
 //*****************************************************************************************//
 
 void setup() {  
+  pinMode(relay, OUTPUT);
+  digitalWrite(relay, LOW);    // Make sure door is locked
   Serial.begin(9600); // Init Serial port
   // while(!Serial); // Wait for computer serial box
   // Setup NeoPixels
@@ -70,7 +77,7 @@ void setup() {
     }
   rfid.PCD_Init(); // Init MFRC522
   //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
-
+  
   // Setup SD card module
   if(!SD.begin(CS_SD)) {
     Serial.println(F("Initializing SD card failed!"));
@@ -95,6 +102,9 @@ void setup() {
   Serial.println();
   Serial.print(F("Using AC bits  : "));
   Serial.println(ACBits);
+  
+  pinMode(prog, INPUT_PULLUP);   // Enable pin's pull up resistor
+  
   LogToSD(F("Startup Initialising Complete"));
   Serial.println(F("Startup Initialising Complete"));
 }
@@ -140,14 +150,25 @@ void readRFID() {
 //*****************************************************************************************//
 
 int verifyRFIDCard(){
+  if(SD.exists(uidString + ".txt") && digitalRead(prog) == LOW){
+    Serial.println(F("Deleting card - Programming Mode"));
+    SD.remove(uidString + ".txt");
+    return(2);
+  }
   //check UUID
   if(!SD.exists(uidString + ".txt")){
     Serial.println(F("UID not recognized"));
-    return(2);
+    if (digitalRead(prog) != LOW) {
+        return(2);
+     }else{
+      Serial.println(F("Adding card - Programming Mode"));
+      myFile=SD.open(uidString + ".txt",FILE_WRITE);
+      myFile.close();
+     }
   }
   
+  
     MFRC522::StatusCode Status;
-    byte sector         = 1;
     byte blockAddr      = (4 * (sector + 1)) - 2;
     byte trailerBlock   = (4 * (sector + 1)) - 1;
     byte buffer[18];
@@ -155,6 +176,7 @@ int verifyRFIDCard(){
         buffer[i] = 0x00; 
     }
     byte size = sizeof(buffer);
+  
 
     // Authenticate using key A
     Serial.println(F("Authenticating using key A... "));
@@ -212,7 +234,11 @@ int verifyRFIDCard(){
     }
     if (Status != MFRC522::STATUS_OK || CardData != SavedData) {
       Serial.println(F("Reading card data failed or card data is inconsistent"));
-      return(6);
+      if (digitalRead(prog) != LOW) {
+        return(6);
+      }else{
+        Serial.println(F("Adding card - Programming Mode"));
+      }
     }
     
     
@@ -290,11 +316,11 @@ void LogToSD(String DataToLogToSD){
 void AccessGranted(int TimeDoorOpen){
   pixels.setPixelColor(NeoPixelNotify, Green);
   pixels.show();
-  // activate relay
+  digitalWrite(relay, HIGH); // activate relay
   Serial.println(F("Access Granted"));
   LogToSD("Access Granted to card: " + uidString);
   delay(TimeDoorOpen);
-  // de-activate relay
+  digitalWrite(relay, LOW); // de-activate relay
   pixels.setPixelColor(NeoPixelNotify, Off);
   pixels.show();
 }
