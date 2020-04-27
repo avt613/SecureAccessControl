@@ -134,7 +134,7 @@ void readRFID() {
     }
   Serial.println(uidString);
   LogToSD("Card with uid detected: " + uidString);
-  delay(200);
+  delay(100);
 }
 
 //*****************************************************************************************//
@@ -212,20 +212,22 @@ int verifyRFIDCard(){
     }
     if (Status != MFRC522::STATUS_OK || CardData != SavedData) {
       Serial.println(F("Reading card data failed or card data is inconsistent"));
-      //return(6);
+      return(6);
     }
     
     
     // Write data to the block
-    Serial.print(F("Writing data into block ")); Serial.print(blockAddr);
-    Serial.println(F(" ..."));
+    Serial.print(F("Writing data into block ")); Serial.println(blockAddr);
     String StringDataToWrite = "";
     byte DataToWrite[16];
     for (byte i = 0; i < 16; i++) {
         //DataToWrite[i] = DecToHex(random(0, 255));
-        DataToWrite[i] = random(0, 10);
-        StringDataToWrite += (DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i]);
-        //Serial.print((DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i], HEX));
+        //DataToWrite[i] = 0x01;
+        DataToWrite[i] = random(0, 255);
+        if(DataToWrite[i] < 0x10){
+          StringDataToWrite += "0";
+        }
+        StringDataToWrite += String(DataToWrite[i], HEX);
     }; 
     Serial.println(StringDataToWrite);
     Status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
@@ -233,10 +235,21 @@ int verifyRFIDCard(){
         Serial.print(F("Writing tag failed: "));
         Serial.println(rfid.GetStatusCodeName(Status));
     }
-    
+    // reread card data
+    Serial.println(F("Re-Reading card data..."));
+    Status = (MFRC522::StatusCode) rfid.MIFARE_Read(blockAddr, buffer, &size);
+    CardData = "";
+    for (byte i = 0; i < 16; i++) {
+        CardData += (buffer[i] < 0x10 ? "0" : "") + String(buffer[i],HEX);
+    }
+    Serial.println(CardData);
+    if (Status != MFRC522::STATUS_OK || CardData != StringDataToWrite) {
+      Serial.println(F("Could not verify card"));
+      return(7);
+    }
     
     Serial.println(F("Writing data to SD..."));
-    //SD.remove(uidString + ".txt");
+    SD.remove(uidString + ".txt");
     //Serial.println("Card removed with UID: " + uidString);
     // Open file
     myFile=SD.open(uidString + ".txt", FILE_WRITE);
@@ -328,13 +341,13 @@ void FlashNeoPixel(int PixelNum, int NumberOfTimesToFlash, int FlashDelayTime, u
 
 void ResetRFIDReadVariables(){
     uidString = "0";
-    for (byte i = 0; i < 3; i++) {
+    for (byte i = 0; i < 4; i++) {
       rfid.uid.uidByte[i] = 00;
     }
 }
 
 //******************************************************************************************//
-
+/* not needed
 byte DecToHex(byte Dec){
   byte DecToHex[] = { 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
                       0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F,
@@ -354,7 +367,7 @@ byte DecToHex(byte Dec){
                       0xF0, 0xF1, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF}; 
   return DecToHex[Dec]; 
 }
-
+*/
 //*******************************************************************************************//
 /*
 void ManagerMode(){
