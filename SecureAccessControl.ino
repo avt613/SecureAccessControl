@@ -102,16 +102,10 @@ void setup() {
 //*****************************************************************************************//
 
 void loop() {
-  /*
-   if(Serial.available()){
-    //Serial.print("You typed: " );
-    //Serial.println(Serial.read());
-    ManagerMode();
-  }*/
   //look for new cards
   if(rfid.PICC_IsNewCardPresent()) {
     readRFID();
-    if(uidString != "0000"){  // ignore if it didn't read the card properly
+    if(uidString != "00000000"){  // ignore if it didn't read the card properly
       pixels.setPixelColor(NeoPixelNotify, Blue);
       pixels.show();
       if(verifyRFIDCard() == 1){
@@ -132,15 +126,15 @@ void loop() {
 //*****************************************************************************************//
 
 void readRFID() {
+  uidString = "";
   rfid.PICC_ReadCardSerial();
   Serial.print(F("Card with uid detected: "));
-  uidString = "";
   for (byte i = 0; i < 4; i++) {
         uidString += (rfid.uid.uidByte[i] < 0x10 ? "0" : "") + String(rfid.uid.uidByte[i],HEX);
     }
   Serial.println(uidString);
   LogToSD("Card with uid detected: " + uidString);
-  delay(100);
+  delay(200);
 }
 
 //*****************************************************************************************//
@@ -170,7 +164,6 @@ int verifyRFIDCard(){
       Serial.println(F("Key A not recognized"));
       return(3);
     }
-    
     // Authenticate using key B
     Serial.println(F("Authenticating using key B... "));
     Status = (MFRC522::StatusCode) rfid.PCD_Authenticate(MFRC522::PICC_CMD_MF_AUTH_KEY_B, trailerBlock, &keyB, &(rfid.uid));
@@ -219,7 +212,7 @@ int verifyRFIDCard(){
     }
     if (Status != MFRC522::STATUS_OK || CardData != SavedData) {
       Serial.println(F("Reading card data failed or card data is inconsistent"));
-      return(6);
+      //return(6);
     }
     
     
@@ -229,22 +222,23 @@ int verifyRFIDCard(){
     String StringDataToWrite = "";
     byte DataToWrite[16];
     for (byte i = 0; i < 16; i++) {
-        DataToWrite[i] = DecToHex(random(0, 255));
-        StringDataToWrite = (DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i]);
+        //DataToWrite[i] = DecToHex(random(0, 255));
+        DataToWrite[i] = random(0, 10);
+        StringDataToWrite += (DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i]);
         //Serial.print((DataToWrite[i] < 0x10 ? "0" : "") + (DataToWrite[i], HEX));
     }; 
-    Serial.println();
+    Serial.println(StringDataToWrite);
     Status = (MFRC522::StatusCode) rfid.MIFARE_Write(blockAddr, DataToWrite, 16);
     if (Status != MFRC522::STATUS_OK) {
-        Serial.print(F("MIFARE_Write() failed: "));
+        Serial.print(F("Writing tag failed: "));
         Serial.println(rfid.GetStatusCodeName(Status));
     }
-    Serial.println(StringDataToWrite);
+    
     
     Serial.println(F("Writing data to SD..."));
+    //Serial.println("Card removed with UID: " + uidString);
     // Open file
-    myFile=SD.open(uidString + ".txt", O_WRITE | O_CREAT | O_TRUNC);
-    // If the file opened ok, read it
+    myFile=SD.open(uidString + ".txt", FILE_WRITE);
     if (myFile) {
       myFile.print(StringDataToWrite);
       myFile.close();
@@ -252,6 +246,7 @@ int verifyRFIDCard(){
       Serial.println("error opening " + uidString + ".txt");
       ErrorCode(6);  
     }
+    
   return(1);
 }
 
