@@ -236,6 +236,7 @@ int verifyRFIDCard(){
     
     
     Serial.println(F("Writing data to SD..."));
+    //SD.remove(uidString + ".txt");
     //Serial.println("Card removed with UID: " + uidString);
     // Open file
     myFile=SD.open(uidString + ".txt", FILE_WRITE);
