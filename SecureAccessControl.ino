@@ -8,58 +8,57 @@
 */
 
 #define AccessGrantedTime 3000 // Time to keep the door unlocked for in milliseconds
-#define AccessDeniedTime 1000 // Time to wait after an incorrect unlock attempt in milliseconds
+#define AccessDeniedTime  1000 // Time to wait after an incorrect unlock attempt in milliseconds
 // Setup RTC Module
 #include <Wire.h>
 #include <RTClib.h>
 RTC_DS1307 rtc; 
 // Setting up the NeoPixel Strip
 #include <Adafruit_NeoPixel.h>
-#define NeoPixelPin 2 // Which pin on the Arduino is connected to the NeoPixels?
-#define NumNeoPixels 1 // How many NeoPixels are attached to the Arduino?
-#define NeoPixelNotify 0 // Determine which LED to use as a notification LED
+#define NeoPixelPin     2 // Which pin on the Arduino is connected to the NeoPixels?
+#define NumNeoPixels    1 // How many NeoPixels are attached to the Arduino?
+#define NeoPixelNotify  0 // Determine which LED to use as a notification LED
 Adafruit_NeoPixel pixels(NumNeoPixels, NeoPixelPin, NEO_GRB + NEO_KHZ800);
 static uint32_t Red   = pixels.Color(255,   0,   0);  // Setting easy name for common colours for the LED's 
 static uint32_t Green = pixels.Color(  0, 255,   0);  // use pixels.setPixelColor(LED#, Color); to set a LED color (Red/ Green/ Blue/ Off)
 static uint32_t Blue  = pixels.Color(  0,   0, 255);  // pixels.clear(); will set all LEDs to off
 static uint32_t Off   = pixels.Color(  0,   0,   0);  // and then use pixels.show();
 // Setting up the RFID and SD modules
-#include <MFRC522.h> // for the RFID
-#include <SPI.h> // for the RFID and SD card module
-#include <SD.h> // for the SD card
-#define CS_RFID 10    // define pins for RFID
+#include <SPI.h>      // for the RFID and SD card module
+#include <SD.h>       // for the SD card
+#include <MFRC522.h>  // for the RFID
+#define CS_RFID 8     // define pins for RFID
 #define RST_RFID 9    // define pins for RFID
-#define CS_SD 3   // define select pin for SD card module
-MFRC522 rfid(CS_RFID, RST_RFID); // Instance of the class for RFID
+#define CS_SD 4       // define select pin for SD card module
+MFRC522 rfid(CS_RFID, RST_RFID);  // Instance of the class for RFID
 MFRC522::MIFARE_Key keyA = {keyByte: {0x35, 0x35, 0x35, 0x32, 0x39, 0x34}};
 MFRC522::MIFARE_Key keyB = {keyByte: {0x00, 0x00, 0xC8, 0xFF, 0x7F, 0x00}};
-File myFile; // Create a file to store the data
-String LogFile = "LOG.TXT"; // name of Log File
-String uidString; // Variable to hold the tag's UID
-String ACBits = " 0f 00 ff 69"; // AC bits the cards must have
-byte sector         = 2;
-#define relay 4     // Set Relay Pin
-#define prog 5     // Button pin for Programming Mode
-bool programMode = false;  // initialize programming mode to false
+File    myFile;       // Create a file to store the data
+String  LogFile = "LOG.TXT";      // name of Log File
+String  uidString;    // Variable to hold the tag's UID
+String  ACBits = " 0f 00 ff 69";  // AC bits the cards must have
+byte    sector = 2;   // which sector to read on the RFID card
+#define relay    3    // Set Relay Pin
+#define prog     6    // Button pin for Programming Mode
 
 //*****************************************************************************************//
 
 void setup() {  
   pinMode(relay, OUTPUT);
-  digitalWrite(relay, LOW);    // Make sure door is locked
-  Serial.begin(9600); // Init Serial port
-  // while(!Serial); // Wait for computer serial box
+  digitalWrite(relay, LOW);   // Make sure door is locked
+  Serial.begin(9600);         // Init Serial port
+  // while(!Serial);          // Wait for computer serial box
   // Setup NeoPixels
-  pixels.begin(); // INITIALIZE NeoPixel strip object (REQUIRED)
-  pixels.setBrightness(80); // Set BRIGHTNESS (max = 255)
-  pixels.clear(); // Set all pixel colors to 'off'
+  pixels.begin();             // INITIALIZE NeoPixel strip object (REQUIRED)
+  pixels.setBrightness(80);   // Set BRIGHTNESS (max = 255)
+  pixels.clear();             // Set all pixel colors to 'off'
   pixels.show();
   
   // Setup RTC Module
   if (! rtc.begin()) {
     Serial.println(F("Couldn't find RTC"));
     ErrorCode(5);
-  }
+  } 
   if (! rtc.isrunning()) {
     Serial.println(F("RTC is NOT running!"));
     // following line sets the RTC to the date & time this sketch was compiled
@@ -70,24 +69,26 @@ void setup() {
   }
   
   SPI.begin(); // Init SPI bus for RFID and SD modules
-  // Setup RFID module
-  if (rfid.PCD_PerformSelfTest() != 1){
-      Serial.println(F("Couldn't find RC522"));
-      ErrorCode(7);
-    }
-  rfid.PCD_Init(); // Init MFRC522
-  //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
   
   // Setup SD card module
   if(!SD.begin(CS_SD)) {
     Serial.println(F("Initializing SD card failed!"));
     ErrorCode(3);  
   }
+  rfid.PCD_Init(); // Init MFRC522
+  // Setup RFID module
+  rfid.PCD_DumpVersionToSerial();  // Show details of PCD - MFRC522 Card Reader details
+  if (rfid.PCD_PerformSelfTest() != 1){
+      Serial.println(F("Couldn't find RC522"));
+      ErrorCode(7);
+    }
+  //rfid.PCD_SetAntennaGain(rfid.RxGain_max); // increases the range of the RFID module
+  
   FlashNeoPixel(NeoPixelNotify, 1, 250, Red);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Blue);
   FlashNeoPixel(NeoPixelNotify, 1, 250, Green);
 
-  randomSeed(analogRead(0));  // used to generate random numbers
+  randomSeed(analogRead(0));  // used to generate sudo random numbers
   Serial.print(F("Using key for A: "));
     for (byte i = 0; i < MFRC522::MF_KEY_SIZE; i++) {
         Serial.print(keyA.keyByte[i] < 0x10 ? " 0" : " ");
@@ -107,12 +108,15 @@ void setup() {
   
   LogToSD(F("Startup Initialising Complete"));
   Serial.println(F("Startup Initialising Complete"));
+  
 }
 
 //*****************************************************************************************//
 
 void loop() {
+  digitalWrite(CS_RFID, LOW);
   //look for new cards
+  //Serial.println(rfid.PICC_IsNewCardPresent());
   if(rfid.PICC_IsNewCardPresent()) {
     readRFID();
     if(uidString != "00000000"){  // ignore if it didn't read the card properly
