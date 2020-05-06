@@ -114,9 +114,10 @@ void setup() {
 //*****************************************************************************************//
 
 void loop() {
+  rfid.PCD_Init(); // Init MFRC522
   //look for new cards
-  Serial.println(rfid.PICC_IsNewCardPresent());
   if(rfid.PICC_IsNewCardPresent()) {
+    Serial.println("card found");
     readRFID();
     if(uidString != "00000000"){  // ignore if it didn't read the card properly
       pixels.setPixelColor(NeoPixelNotify, Blue);
@@ -201,12 +202,13 @@ int verifyRFIDCard(){
     for (byte i = 0; i < 16; i++) {
         CardData += (buffer[i] < 0x10 ? "0" : "") + String(buffer[i],HEX);
     }
-    
-    // Check Keys % AC
+    /*
+    // Check Keys AC
     if (StatusKeyA != MFRC522::STATUS_OK || StatusKeyB != MFRC522::STATUS_OK || StatusAC != MFRC522::STATUS_OK || ACString != ACBits) {
       Serial.println(F("Keys or AC not recognized"));
       return(3);
     }
+    */
     
     
     Serial.println(CardData);
