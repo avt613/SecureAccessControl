@@ -7,7 +7,7 @@
 // Setting up the NeoPixel Strip
 #include <Adafruit_NeoPixel.h>
 #define NeoPixelPin 2 // Which pin on the Arduino is connected to the NeoPixels?
-#define NumNeoPixels 30 // How many NeoPixels are attached to the Arduino?
+#define NumNeoPixels 1 // How many NeoPixels are attached to the Arduino?
 #define NeoPixelNotify 0 // Determine which LED to use as a notification LED
 Adafruit_NeoPixel pixels(NumNeoPixels, NeoPixelPin, NEO_GRB + NEO_KHZ800);
 static uint32_t Red   = pixels.Color(255,   0,   0);  // Setting easy name for common colours for the LED's 
@@ -15,12 +15,12 @@ static uint32_t Green = pixels.Color(  0, 255,   0);  // use pixels.setPixelColo
 static uint32_t Blue  = pixels.Color(  0,   0, 255);  // pixels.clear(); will set all LEDs to off
 static uint32_t Off   = pixels.Color(  0,   0,   0);  // and then use pixels.show();
 // Setting up the RFID and SD modules
-#include <MFRC522.h> // for the RFID
 #include <SPI.h> // for the RFID and SD card module
 #include <SD.h> // for the SD card
-#define CS_RFID 10    // define pins for RFID
+#include <MFRC522.h> // for the RFID
+#define CS_RFID 8    // define pins for RFID
 #define RST_RFID 9    // define pins for RFID
-#define CS_SD 3   // define select pin for SD card module
+#define CS_SD 4   // define select pin for SD card module
 MFRC522 rfid(CS_RFID, RST_RFID); // Instance of the class for RFID
 File myFile; // Create a file to store the data
 String LogFile = "log.txt"; // name of Log File
