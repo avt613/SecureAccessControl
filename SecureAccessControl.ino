@@ -51,7 +51,7 @@ void setup() {
   pinMode(relay, OUTPUT);
   digitalWrite(relay, LOW);   // Make sure door is locked
   pinMode(prog, INPUT_PULLUP);   // Enable pin's pull up resistor
-  Serial.begin(9600);         // Init Serial port
+  Serial.begin(2000000);         // Init Serial port
   // while(!Serial);          // Wait for computer serial box
   // Setup NeoPixels
   pixels.begin();             // INITIALIZE NeoPixel strip object (REQUIRED)
