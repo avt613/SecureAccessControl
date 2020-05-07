@@ -14,7 +14,7 @@
 #include <SD.h>                   // for the SD card
 #include <MFRC522.h>              // for the RFID
 
-#define AccessGrantedTime 3000    // Time to keep the door unlocked for in milliseconds
+#define AccessGrantedTime 2000    // Time to keep the door unlocked for in milliseconds
 #define AccessDeniedTime  1000    // Time to wait after an incorrect unlock attempt in milliseconds
 // PINS
 #define NeoPixelPin     2 // Which pin on the Arduino is connected to the NeoPixels?
@@ -51,7 +51,7 @@ void setup() {
   pinMode(relay, OUTPUT);
   digitalWrite(relay, LOW);   // Make sure door is locked
   pinMode(prog, INPUT_PULLUP);   // Enable pin's pull up resistor
-  Serial.begin(2000000);         // Init Serial port
+  Serial.begin(9600);         // Init Serial port
   // while(!Serial);          // Wait for computer serial box
   // Setup NeoPixels
   pixels.begin();             // INITIALIZE NeoPixel strip object (REQUIRED)
