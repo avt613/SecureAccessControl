@@ -162,6 +162,7 @@ void readRFID() {
 int verifyRFIDCard(){
   if(SD.exists(uidString + dataExt) && programMode == true){
     Serial.println(F("Deleting card - Programming Mode"));
+    LogToSD("Programming Mode - Deleting card: " + uidString);
     SD.remove(uidString + dataExt);
     return(2);
   }
@@ -170,6 +171,7 @@ int verifyRFIDCard(){
     Serial.println(F("UID not recognized"));
     if (programMode == true) {
       Serial.println(F("Adding card - Programming Mode"));
+      LogToSD("Programming Mode - Adding card: " + uidString);
       myFile=SD.open(uidString + dataExt,FILE_WRITE);
       myFile.close();
      }else{
@@ -282,7 +284,7 @@ int verifyRFIDCard(){
 //*****************************************************************************************//
 
 void LogToSD(String DataToLogToSD){
-        // Open file
+      // Open file
       myFile=SD.open(LogFile, FILE_WRITE);
       // If the file opened ok, write to it
       if (myFile) {
